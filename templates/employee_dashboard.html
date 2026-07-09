@@ -1,0 +1,340 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Employee Dashboard</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/all.min.css' %}">
+    <style>
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 250px;
+            background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .sidebar a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            display: block;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 5px 0;
+            transition: all 0.3s;
+        }
+        .sidebar a:hover, .sidebar a.active {
+            color: white;
+            background: rgba(255,255,255,0.1);
+        }
+        .sidebar a i { margin-right: 10px; }
+        .main-content { margin-left: 250px; padding: 20px; }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .notification-badge {
+            position: relative;
+            cursor: pointer;
+        }
+        .notification-badge .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+        }
+        .notification-dropdown {
+            position: absolute;
+            right: 0;
+            top: 40px;
+            width: 350px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+        .notification-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+        .notification-item:hover { background: #f8f9fa; }
+        .notification-item.unread { background: #e3f2fd; border-left: 4px solid #2196f3; }
+        .notification-item .time { font-size: 11px; color: #888; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <h4><i class="fas fa-tasks me-2"></i>Task System</h4>
+    <small class="text-muted">Employee Panel</small>
+    <hr>
+    <a href="#" onclick="showSection('dashboard')" class="active"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="#" onclick="showSection('create')"><i class="fas fa-plus-circle"></i> Create Task</a>
+    <a href="#" onclick="showSection('mytasks')"><i class="fas fa-tasks"></i> My Tasks</a>
+    <form action="{% url 'logout' %}" method="POST" class="m-0">
+        {% csrf_token %}
+
+        <button
+            type="submit"
+            class="btn btn-link text-decoration-none text-danger w-100 d-flex align-items-center px-3 py-2">
+
+            <i class="fas fa-sign-out-alt me-2"></i>
+
+            Logout
+
+        </button>
+
+    </form>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+    
+
+    <!-- Top Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4>👋 Welcome, {{ user.username }}!</h4>
+        <div class="d-flex align-items-center">
+            <div class="notification-badge me-3">
+                <button class="btn btn-light" onclick="toggleNotifications()">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge bg-danger" id="notificationCount">0</span>
+                </button>
+                <div class="notification-dropdown" id="notificationDropdown">
+                    <h6 class="p-3">🔔 Notifications</h6>
+                    <div id="notificationList"><div class="text-center text-muted p-4">No new notifications</div></div>
+                    <div class="p-2 border-top text-center">
+                        <button class="btn btn-sm btn-link" onclick="markAllRead()">Mark all as read</button>
+                    </div>
+                </div>
+            </div>
+            <span class="badge bg-success">Employee</span>
+        </div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard-section">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="stat-card"><h6 class="text-muted">Total Tasks</h6><h3 id="totalTasks">0</h3></div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card"><h6 class="text-muted">Pending</h6><h3 id="pendingTasks">0</h3></div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card"><h6 class="text-muted">Approved</h6><h3 id="approvedTasks">0</h3></div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <h5>Recent Tasks</h5>
+            <table class="table table-hover">
+                <thead><tr><th>Title</th><th>Status</th><th>Created At</th></tr></thead>
+                <tbody id="recentTasksBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create Task Section -->
+    <div id="create-section" style="display:none;">
+        <h4>Create New Task</h4>
+        <div class="table-container">
+            <form id="createTaskForm" method="post">
+                {% csrf_token %}
+                <div class="mb-3"><label>Task Title</label><input type="text" class="form-control" id="taskTitle" required></div>
+                <div class="mb-3"><label>Description</label><textarea class="form-control" id="taskDescription" rows="4" required></textarea></div>
+                <button type="button" class="btn btn-primary" onclick="createTask()"><i class="fas fa-paper-plane"></i> Submit Task</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- My Tasks Section -->
+    <div id="mytasks-section" style="display:none;">
+        <h4>My Tasks</h4>
+        <div class="table-container">
+            <table class="table table-hover">
+                <thead><tr><th>Title</th><th>Description</th><th>Status</th><th>Created At</th><th>Comment</th></tr></thead>
+                <tbody id="myTasksBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+<script>
+
+document.addEventListener('click', function(event) {
+  loadNotifications()
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showSection(section) {
+    document.querySelectorAll('.main-content > div[id$="-section"]').forEach(el => el.style.display = 'none');
+    document.getElementById(section + '-section').style.display = 'block';
+    if (section === 'mytasks') loadMyTasks();
+}
+
+
+
+function loadMyTasks() {
+    $.ajax({ url: '/task/tasks/', method: 'GET', success: function(data) {
+        const tbody = document.getElementById('myTasksBody');
+        tbody.innerHTML = '';
+        data.forEach(task => {
+            const statusBadge = {'pending':'<span class="badge bg-warning">Pending</span>','approved':'<span class="badge bg-success">Approved</span>','rejected':'<span class="badge bg-danger">Rejected</span>'}[task.status] || task.status;
+            tbody.innerHTML += `<tr>
+                <td>${task.title}</td>
+                <td>${task.description.substring(0, 50)}${task.description.length > 50 ? '...' : ''}</td>
+                <td>${statusBadge}</td>
+                <td>${task.created_at}</td>
+                <td>${task.approval_comment || '-'}</td>
+            </tr>`;
+        });
+    }});
+}
+
+function loadDashboardStats() {
+    $.ajax({ url: '/task/tasks/', method: 'GET', success: function(data) {
+        document.getElementById('totalTasks').textContent = data.length;
+        document.getElementById('pendingTasks').textContent = data.filter(t => t.status === 'pending').length;
+        document.getElementById('approvedTasks').textContent = data.filter(t => t.status === 'approved').length;
+        const recent = data.slice(0, 5);
+        const tbody = document.getElementById('recentTasksBody');
+        tbody.innerHTML = '';
+        recent.forEach(task => {
+            const statusBadge = {'pending':'<span class="badge bg-warning">Pending</span>','approved':'<span class="badge bg-success">Approved</span>','rejected':'<span class="badge bg-danger">Rejected</span>'}[task.status] || task.status;
+            tbody.innerHTML += `<tr><td>${task.title}</td><td>${statusBadge}</td><td>${task.created_at}</td></tr>`;
+        });
+    }});
+}
+
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    if (dropdown.style.display === 'block') { dropdown.style.display = 'none'; }
+    else { dropdown.style.display = 'block'; loadNotifications(); }
+}
+
+
+
+
+function loadNotifications() {
+    $.ajax({ url: '/notification/notifications/', method: 'GET', success: function(data) {
+        const list = document.getElementById('notificationList');
+        document.getElementById('notificationCount').textContent = data.count;
+        if (data.notifications.length === 0) { list.innerHTML = '<div class="text-center text-muted p-4">No new notifications</div>'; }
+        else {
+            list.innerHTML = data.notifications.map(n => `
+                <div class="notification-item unread" onclick="markRead(${n.id})">
+                    <div><strong>${n.title}</strong></div>
+                    <div>${n.message}</div>
+                    <div class="time">${n.created_at}</div>
+                </div>
+            `).join('');
+        }
+    }});
+}
+
+function markRead(id) {
+    const csrftoken = getCookie('csrftoken');
+    $.ajax({
+        url: `/notification/${id}/read/`,
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        success: function() {
+            loadNotifications();
+            const count = parseInt(document.getElementById('notificationCount').textContent) - 1;
+            document.getElementById('notificationCount').textContent = count;
+        },
+        error: function(xhr) {
+            alert('Unable to mark notification as read: ' + (xhr.responseJSON?.error || 'Unknown error'));
+        }
+    });
+}
+
+function markAllRead() {
+    const csrftoken = getCookie('csrftoken');
+    $.ajax({
+        url: '/notification/read-all/',
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        success: function() {
+            document.getElementById('notificationCount').textContent = '0';
+            document.getElementById('notificationList').innerHTML = '<div class="text-center text-muted p-4">No new notifications</div>';
+        },
+        error: function(xhr) {
+            alert('Unable to mark notifications as read: ' + (xhr.responseJSON?.error || 'Unknown error'));
+        }
+    });
+}
+
+$(document).click(function(event) {
+    if (!$(event.target).closest('.notification-badge').length) { $('#notificationDropdown').hide(); }
+});
+
+$(document).ready(function() {
+    loadDashboardStats();
+    setInterval(loadNotifications, 30000);
+});
+</script>
+
+<script>
+
+    function createTask() {
+    const title = document.getElementById('taskTitle').value;
+    const description = document.getElementById('taskDescription').value;
+    if (!title || !description) { alert('Please fill all fields'); return; }
+    const csrftoken = getCookie('csrftoken');
+    $.ajax({
+        url: '/task/create/',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ title, description }),
+        headers: {
+            'X-CSRFToken': csrftoken 
+        },
+        success: function(response) {
+            if (response.success) {
+                alert(' Task created!');
+                document.getElementById('createTaskForm').reset();
+                loadDashboardStats();
+                showSection('mytasks');
+            }
+        },
+        error: function(xhr) { alert('Error: ' + (xhr.responseJSON?.error || 'Unknown error')); }
+    });
+}
+</script>
+</body>
+</html>

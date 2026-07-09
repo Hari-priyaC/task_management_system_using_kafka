@@ -1,0 +1,715 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/all.min.css' %}">
+    <style>
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 250px;
+            background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .sidebar a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            display: block;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 5px 0;
+            transition: all 0.3s;
+        }
+        .sidebar a:hover, .sidebar a.active {
+            color: white;
+            background: rgba(255,255,255,0.1);
+        }
+        .sidebar a i { margin-right: 10px; }
+        .main-content { margin-left: 250px; padding: 20px; }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .notification-badge {
+            position: relative;
+            cursor: pointer;
+        }
+        .notification-badge .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+        }
+        .notification-dropdown {
+            position: absolute;
+            right: 0;
+            top: 40px;
+            width: 350px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+        .notification-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+        .notification-item:hover { background: #f8f9fa; }
+        .notification-item.unread { background: #e3f2fd; border-left: 4px solid #2196f3; }
+        .notification-item .time { font-size: 11px; color: #888; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <h4><i class="fas fa-tasks me-2"></i>Task System</h4>
+    <small class="text-muted">Admin Panel</small>
+    <hr>
+    <a href="#" onclick="showSection('dashboard')" class="active"><i class="fas fa-home"></i> Dashboard</a>
+    <a href="#" onclick="showSection('employees')"><i class="fas fa-users"></i> Employees</a>
+    <a href="#" onclick="showSection('tasks')"><i class="fas fa-tasks"></i> All Tasks</a>
+    <a href="#" onclick="showSection('pending')"><i class="fas fa-clock"></i> Pending Tasks</a>
+    <a href="{% url 'analytics_dashboard' %}"><i class="fas fa-chart-line"></i> Analytics</a>
+    <a href="{% url 'dlq_dashboard' %}"><i class="fas fa-skull"></i> DLQ Monitor</a>
+<form action="{% url 'logout' %}" method="POST" class="m-0">
+        {% csrf_token %}
+
+        <button
+            type="submit"
+            class="btn btn-link text-decoration-none text-danger w-100 d-flex align-items-center px-3 py-2">
+
+            <i class="fas fa-sign-out-alt me-2"></i>
+
+            Logout
+
+        </button>
+
+    </form>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+
+    <!-- Top Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4> Welcome, {{ user.username }}!</h4>
+        <div class="d-flex align-items-center">
+            <div class="notification-badge me-3">
+                <button class="btn btn-light" onclick="toggleNotifications()">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge bg-danger" id="notificationCount">0</span>
+                </button>
+                <div class="notification-dropdown" id="notificationDropdown">
+                    <h6 class="p-3"> Notifications</h6>
+                    <div id="notificationList"><div class="text-center text-muted p-4">No new notifications</div></div>
+                    <div class="p-2 border-top text-center">
+                        <button class="btn btn-sm btn-link" onclick="markAllRead()">Mark all as read</button>
+                    </div>
+                </div>
+            </div>
+            <span class="badge bg-primary">Admin</span>
+        </div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard-section">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <h6 class="text-muted">Total Employees</h6>
+                    <h3>{{ total_employees }}</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <h6 class="text-muted">Total Admins</h6>
+                    <h3>{{ total_admins }}</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <h6 class="text-muted">Pending Tasks</h6>
+                    <h3 id="pendingCount">0</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <h6 class="text-muted">Total Tasks</h6>
+                    <h3 id="totalTasks">0</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="d-flex justify-content-between mb-3">
+                <h5>Employee List</h5>
+                <button class="btn btn-primary btn-sm" onclick="showAddEmployee()">
+                    <i class="fas fa-plus"></i> Add Employee
+                </button>
+            </div>
+            <table class="table table-hover">
+                <thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Department</th><th>Actions</th></tr></thead>
+                <tbody id="employeeTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Employees Section -->
+    <div id="employees-section" style="display:none;">
+        <h4>Employee Management</h4>
+        <div class="table-container">
+            <div class="d-flex justify-content-between mb-3">
+                <h5>All Employees</h5>
+                <button class="btn btn-primary btn-sm" onclick="showAddEmployee()">
+                    <i class="fas fa-plus"></i> Add Employee
+                </button>
+            </div>
+            <table class="table table-hover">
+                <thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Department</th><th>Actions</th></tr></thead>
+                <tbody id="employeeTableBody2"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tasks Section -->
+    <div id="tasks-section" style="display:none;">
+        <h4>All Tasks</h4>
+        <div class="table-container">
+            <table class="table table-hover">
+                <thead><tr><th>Title</th><th>Created By</th><th>Status</th><th>Created At</th></tr></thead>
+                <tbody id="allTasksBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pending Tasks Section -->
+    <div id="pending-section" style="display:none;">
+        <h4>Pending Tasks for Approval</h4>
+        <div class="table-container">
+            <table class="table table-hover">
+                <thead><tr><th>Title</th><th>Description</th><th>Created By</th><th>Created At</th><th>Actions</th></tr></thead>
+                <tbody id="pendingTasksBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Employee Modal -->
+<div class="modal fade" id="addEmployeeModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Add Employee</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <form id="addEmployeeForm">
+                    <div class="mb-3"><label>Username</label><input type="text" class="form-control" id="empUsername" required></div>
+                    <div class="mb-3"><label>Email</label><input type="email" class="form-control" id="empEmail" required></div>
+                    <div class="mb-3"><label>Password</label><input type="password" class="form-control" id="empPassword" required></div>
+                    <div class="row"><div class="col-md-6 mb-3"><label>First Name</label><input type="text" class="form-control" id="empFirstName"></div>
+                    <div class="col-md-6 mb-3"><label>Last Name</label><input type="text" class="form-control" id="empLastName"></div></div>
+                    <div class="mb-3"><label>Phone</label><input type="text" class="form-control" id="empPhone"></div>
+                    <div class="mb-3"><label>Department</label><input type="text" class="form-control" id="empDepartment"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="addEmployee()">Add Employee</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Employee Modal -->
+<div class="modal fade" id="editEmployeeModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Edit Employee</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <form id="editEmployeeForm">
+                    <input type="hidden" id="editEmpId">
+                    <div class="mb-3"><label>Email</label><input type="email" class="form-control" id="editEmpEmail" required></div>
+                    <div class="row"><div class="col-md-6 mb-3"><label>First Name</label><input type="text" class="form-control" id="editEmpFirstName"></div>
+                    <div class="col-md-6 mb-3"><label>Last Name</label><input type="text" class="form-control" id="editEmpLastName"></div></div>
+                    <div class="mb-3"><label>Phone</label><input type="text" class="form-control" id="editEmpPhone"></div>
+                    <div class="mb-3"><label>Department</label><input type="text" class="form-control" id="editEmpDepartment"></div>
+                    <div class="mb-3"><label>New Password</label><input type="password" class="form-control" id="editEmpPassword" placeholder="Leave blank to keep current"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" onclick="updateEmployee()">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approval Modal -->
+<div class="modal fade" id="approvalModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Approve/Reject Task</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="approvalTaskId">
+                <div class="mb-3"><label>Comment</label><textarea class="form-control" id="approvalComment" rows="3"></textarea></div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success" onclick="approveTask('approve')"><i class="fas fa-check"></i> Approve</button>
+                    <button class="btn btn-danger" onclick="approveTask('reject')"><i class="fas fa-times"></i> Reject</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- JAVASCRIPT WITH CSRF TOKEN FIX              -->
+<!-- ============================================ -->
+<script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+<script>
+// ============================================
+//  CRITICAL FIX: CSRF Token Setup
+// ============================================
+document.addEventListener('click', function(event) {
+  loadNotifications()
+});
+// Function to get CSRF token from cookie
+function getCSRFToken() {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, 10) === ('csrftoken' + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(10));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// ⭐ Global AJAX setup - Adds CSRF token to ALL AJAX requests
+$.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        // Only add token for non-GET requests
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)) {
+            xhr.setRequestHeader("X-CSRFToken", getCSRFToken());
+        }
+    }
+});
+
+// Test if CSRF token is working
+console.log(' CSRF Token:', getCSRFToken());
+
+// ============================================
+// REST OF YOUR JAVASCRIPT CODE
+// ============================================
+
+const addModal = new bootstrap.Modal(document.getElementById('addEmployeeModal'));
+const editModal = new bootstrap.Modal(document.getElementById('editEmployeeModal'));
+const approvalModal = new bootstrap.Modal(document.getElementById('approvalModal'));
+
+function showSection(section) {
+    document.querySelectorAll('.main-content > div[id$="-section"]').forEach(el => el.style.display = 'none');
+    document.getElementById(section + '-section').style.display = 'block';
+    if (section === 'employees') loadEmployees('#employeeTableBody2');
+    else if (section === 'tasks') loadAllTasks();
+    else if (section === 'pending') loadPendingTasks();
+}
+
+// ============================================
+// EMPLOYEE FUNCTIONS (FIXED)
+// ============================================
+
+function loadEmployees(targetId) {
+    $.ajax({
+        url: '/accounts/api/employees/',
+        method: 'GET',
+        success: function(data) {
+            const tbody = document.querySelector(targetId);
+            tbody.innerHTML = '';
+            data.forEach(emp => {
+                tbody.innerHTML += `<tr>
+                    <td>${emp.username}</td>
+                    <td>${emp.first_name || ''} ${emp.last_name || ''}</td>
+                    <td>${emp.email}</td>
+                    <td>${emp.department || 'N/A'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="editEmployee(${emp.id})"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteEmployee(${emp.id})"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            });
+        },
+        error: function(xhr) {
+            console.error('Error loading employees:', xhr);
+            alert('❌ Failed to load employees. Please refresh.');
+        }
+    });
+}
+
+function showAddEmployee() {
+    document.getElementById('addEmployeeForm').reset();
+    addModal.show();
+}
+
+function addEmployee() {
+    const data = {
+        username: document.getElementById('empUsername').value,
+        email: document.getElementById('empEmail').value,
+        password: document.getElementById('empPassword').value,
+        first_name: document.getElementById('empFirstName').value,
+        last_name: document.getElementById('empLastName').value,
+        phone: document.getElementById('empPhone').value,
+        department: document.getElementById('empDepartment').value
+    };
+    
+    // ⭐ CSRF token is automatically added by $.ajaxSetup
+    $.ajax({
+        url: '/accounts/api/employees/create/',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                addModal.hide();
+                alert('✅ Employee added successfully!');
+                loadEmployees('#employeeTableBody');
+                loadEmployees('#employeeTableBody2');
+                loadDashboardStats();
+            } else {
+                alert('❌ Error: ' + (response.error || 'Unknown error'));
+            }
+        },
+        error: function(xhr) {
+            let errorMsg = 'Unknown error';
+            try {
+                const response = JSON.parse(xhr.responseText);
+                errorMsg = response.error || response.message || 'Unknown error';
+            } catch(e) {
+                errorMsg = xhr.statusText || 'Server error';
+            }
+            alert('❌ Error: ' + errorMsg);
+            console.error('Error details:', xhr);
+        }
+    });
+}
+
+function editEmployee(id) {
+    $.ajax({
+        url: '/accounts/api/employees/',
+        method: 'GET',
+        success: function(data) {
+            const emp = data.find(e => e.id === id);
+            if (emp) {
+                document.getElementById('editEmpId').value = emp.id;
+                document.getElementById('editEmpEmail').value = emp.email;
+                document.getElementById('editEmpFirstName').value = emp.first_name || '';
+                document.getElementById('editEmpLastName').value = emp.last_name || '';
+                document.getElementById('editEmpPhone').value = emp.phone || '';
+                document.getElementById('editEmpDepartment').value = emp.department || '';
+                editModal.show();
+            }
+        },
+        error: function(xhr) {
+            alert('❌ Error loading employee details');
+        }
+    });
+}
+
+function updateEmployee() {
+    const id = document.getElementById('editEmpId').value;
+    const data = {
+        email: document.getElementById('editEmpEmail').value,
+        first_name: document.getElementById('editEmpFirstName').value,
+        last_name: document.getElementById('editEmpLastName').value,
+        phone: document.getElementById('editEmpPhone').value,
+        department: document.getElementById('editEmpDepartment').value,
+        password: document.getElementById('editEmpPassword').value
+    };
+    
+    $.ajax({
+        url: `/accounts/api/employees/${id}/update/`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            if (response.success) {
+                editModal.hide();
+                alert(' Employee updated successfully!');
+                loadEmployees('#employeeTableBody');
+                loadEmployees('#employeeTableBody2');
+            } else {
+                alert(' Error: ' + (response.error || 'Unknown error'));
+            }
+        },
+        error: function(xhr) {
+            alert('Error updating employee');
+            console.error('Error:', xhr);
+        }
+    });
+}
+
+function deleteEmployee(id) {
+    if (confirm('Are you sure you want to delete this employee?')) {
+        $.ajax({
+            url: `/accounts/api/employees/${id}/delete/`,
+            method: 'DELETE',
+            success: function(response) {
+                if (response.success) {
+                    alert(' Employee deleted successfully!');
+                    loadEmployees('#employeeTableBody');
+                    loadEmployees('#employeeTableBody2');
+                    loadDashboardStats();
+                }
+            },
+            error: function(xhr) {
+                alert('Error deleting employee');
+                console.error('Error:', xhr);
+            }
+        });
+    }
+}
+
+// ============================================
+// TASK FUNCTIONS
+// ============================================
+
+function loadAllTasks() {
+    $.ajax({
+        url: '/task/tasks/',
+        method: 'GET',
+        success: function(data) {
+            const tbody = document.getElementById('allTasksBody');
+            tbody.innerHTML = '';
+            data.forEach(task => {
+                const statusBadge = {
+                    'pending': '<span class="badge bg-warning">Pending</span>',
+                    'approved': '<span class="badge bg-success">Approved</span>',
+                    'rejected': '<span class="badge bg-danger">Rejected</span>'
+                }[task.status] || task.status;
+                tbody.innerHTML += `<tr>
+                    <td>${task.title}</td>
+                    <td>${task.created_by}</td>
+                    <td>${statusBadge}</td>
+                    <td>${task.created_at}</td>
+                </tr>`;
+            });
+        },
+        error: function(xhr) {
+            console.error('Error loading tasks:', xhr);
+        }
+    });
+}
+
+function loadPendingTasks() {
+    $.ajax({
+        url: '/task/pending/',
+        method: 'GET',
+        success: function(data) {
+            const tbody = document.getElementById('pendingTasksBody');
+            tbody.innerHTML = '';
+            data.forEach(task => {
+                tbody.innerHTML += `<tr>
+                    <td>${task.title}</td>
+                    <td>${task.description.substring(0, 50)}...</td>
+                    <td>${task.created_by}</td>
+                    <td>${task.created_at}</td>
+                    <td>
+                        <button class="btn btn-sm btn-success" onclick="openApprovalModal(${task.id})">
+                            <i class="fas fa-check"></i> Review
+                        </button>
+                    </td>
+                </tr>`;
+            });
+            document.getElementById('pendingCount').textContent = data.length;
+        },
+        error: function(xhr) {
+            console.error('Error loading pending tasks:', xhr);
+        }
+    });
+}
+
+function openApprovalModal(taskId) {
+    document.getElementById('approvalTaskId').value = taskId;
+    document.getElementById('approvalComment').value = '';
+    approvalModal.show();
+}
+
+function approveTask(action) {
+    const taskId = document.getElementById('approvalTaskId').value;
+    const comment = document.getElementById('approvalComment').value;
+    
+    $.ajax({
+        url: `/task/${taskId}/approve/`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ action: action, comment: comment }),
+        success: function(response) {
+            if (response.success) {
+                approvalModal.hide();
+                alert(' ' + response.message);
+                loadPendingTasks();
+                loadDashboardStats();
+            } else {
+                alert(' Error: ' + (response.error || 'Unknown error'));
+            }
+        },
+        error: function(xhr) {
+            alert(' Error approving task');
+            console.error('Error:', xhr);
+        }
+    });
+}
+
+// ============================================
+// DASHBOARD STATS
+// ============================================
+
+function loadDashboardStats() {
+    $.ajax({
+        url: '/task/pending/',
+        method: 'GET',
+        success: function(data) {
+            document.getElementById('pendingCount').textContent = data.length;
+        },
+        error: function(xhr) {
+            console.error('Error loading pending count:', xhr);
+        }
+    });
+    
+    $.ajax({
+        url: '/task/tasks/',
+        method: 'GET',
+        success: function(data) {
+            document.getElementById('totalTasks').textContent = data.length;
+        },
+        error: function(xhr) {
+            console.error('Error loading total tasks:', xhr);
+        }
+    });
+}
+
+// ============================================
+// NOTIFICATION FUNCTIONS
+// ============================================
+
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    if (dropdown.style.display === 'block') {
+        dropdown.style.display = 'none';
+    } else {
+        dropdown.style.display = 'block';
+        loadNotifications();
+    }
+}
+
+function loadNotifications() {
+    $.ajax({
+        url: '/notification/notifications/',
+        method: 'GET',
+        success: function(data) {
+            const list = document.getElementById('notificationList');
+            document.getElementById('notificationCount').textContent = data.count;
+            
+            if (data.notifications.length === 0) {
+                list.innerHTML = '<div class="text-center text-muted p-4">No new notifications</div>';
+            } else {
+                list.innerHTML = data.notifications.map(n => `
+                    <div class="notification-item unread" onclick="markRead(${n.id})">
+                        <div><strong>${n.title}</strong></div>
+                        <div>${n.message}</div>
+                        <div class="time">${n.created_at}</div>
+                    </div>
+                `).join('');
+            }
+        },
+        error: function(xhr) {
+            console.error('Error loading notifications:', xhr);
+        }
+    });
+}
+
+function markRead(id) {
+    $.ajax({
+        url: `/notification/${id}/read/`,
+        method: 'POST',
+        success: function() {
+            loadNotifications();
+            const count = parseInt(document.getElementById('notificationCount').textContent) - 1;
+            document.getElementById('notificationCount').textContent = count;
+        },
+        error: function(xhr) {
+            console.error('Error marking notification as read:', xhr);
+        }
+    });
+}
+
+function markAllRead() {
+    $.ajax({
+        url: '/notification/read-all/',
+        method: 'POST',
+        success: function() {
+            document.getElementById('notificationCount').textContent = '0';
+            document.getElementById('notificationList').innerHTML = 
+                '<div class="text-center text-muted p-4">No new notifications</div>';
+        },
+        error: function(xhr) {
+            console.error('Error marking all as read:', xhr);
+        }
+    });
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+$(document).ready(function() {
+    console.log('Admin dashboard loaded');
+    console.log(' CSRF Token present:', getCSRFToken() ? ' Yes' : ' No');
+    
+    loadEmployees('#employeeTableBody');
+    loadDashboardStats();
+    
+    // Auto-refresh notifications every 30 seconds
+    setInterval(loadNotifications, 30000);
+    
+    // Close notification dropdown when clicking outside
+    $(document).click(function(event) {
+        if (!$(event.target).closest('.notification-badge').length) {
+            $('#notificationDropdown').hide();
+        }
+    });
+});
+
+// Close dropdown when clicking outside
+$(document).click(function(event) {
+    if (!$(event.target).closest('.notification-badge').length) {
+        $('#notificationDropdown').hide();
+    }
+});
+
+
+
+</script>
+</body>
+</html>
