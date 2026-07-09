@@ -16,6 +16,7 @@ django.setup()
 from task.models import Task
 from notification.models import Notification
 from accounts.models import CustomUser
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class TaskConsumer:
             return True
             
         except Exception as e:
-            logger.error(f" Error processing message: {e}")
+            logger.error(f"Error processing message: {e}")
             return False
     
     def start(self):

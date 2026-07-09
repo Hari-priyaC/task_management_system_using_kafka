@@ -143,9 +143,22 @@ KAFKA_TOPICS = {
     'notification_dlq': 'notification-dlq',
 }
 
-#  Retry Configuration - FAST FAIL
-MAX_RETRY_ATTEMPTS = 2  #  Reduced from 3 to 2
-RETRY_BACKOFF_MS = 1000  # 1 second
+# Retry Configuration - FAST FAIL, non-blocking
+MAX_RETRY_ATTEMPTS = 3
+RETRY_BACKOFF_MS = 2000  # 2 seconds between retries
+
+# Kafka producer timeouts, tuned to fail fast when the broker is down instead
+# of blocking on kafka-python's defaults (max_block_ms defaults to 60000ms,
+# delivery_timeout_ms to 120000ms - that's the source of the 60s request hang).
+KAFKA_PRODUCER_CONFIG = {
+    'acks': 1,                     # leader ack only; don't wait on full ISR replication
+    'retries': 0,                  # we run our own bounded retry loop in send_with_retry
+    'request_timeout_ms': 5000,    # per-request timeout to the broker
+    'max_block_ms': 5000,          # max time .send() may block on metadata/buffer space
+    'delivery_timeout_ms': 10000,  # upper bound on send() -> ack/failure; must be >= request_timeout_ms
+    'retry_backoff_ms': RETRY_BACKOFF_MS,
+    'api_version': (2, 5),         # skip the broker version auto-probe on connect
+}
 
 # ============================================
 # LOGGING CONFIGURATION - FIXED

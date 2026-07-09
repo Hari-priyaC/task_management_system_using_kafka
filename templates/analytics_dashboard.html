@@ -77,6 +77,7 @@
             padding: 40px;
             color: #999;
         }
+        {% include 'partials/notification_styles.html' %}
     </style>
 </head>
 <body>
@@ -103,16 +104,19 @@
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4>📊 Analytics Dashboard</h4>
-        <div>
-            <button class="btn btn-success btn-sm download-btn" onclick="location.href='{% url "download_csv" %}'">
-                <i class="fas fa-file-csv"></i> CSV
-            </button>
-            <button class="btn btn-success btn-sm download-btn" onclick="location.href='{% url "download_excel" %}'">
-                <i class="fas fa-file-excel"></i> Excel
-            </button>
-            <button class="btn btn-success btn-sm" onclick="location.href='{% url "download_json" %}'">
-                <i class="fas fa-file-code"></i> JSON
-            </button>
+        <div class="d-flex align-items-center">
+            {% include 'partials/notification_bell.html' %}
+            <div>
+                <button class="btn btn-success btn-sm download-btn" onclick="location.href='{% url "download_csv" %}'">
+                    <i class="fas fa-file-csv"></i> CSV
+                </button>
+                <button class="btn btn-success btn-sm download-btn" onclick="location.href='{% url "download_excel" %}'">
+                    <i class="fas fa-file-excel"></i> Excel
+                </button>
+                <button class="btn btn-success btn-sm" onclick="location.href='{% url "download_json" %}'">
+                    <i class="fas fa-file-code"></i> JSON
+                </button>
+            </div>
         </div>
     </div>
 
@@ -281,6 +285,7 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'js/notifications.js' %}"></script>
 <script>
 // ⭐ FIX: Check if data exists before creating charts
 document.addEventListener('DOMContentLoaded', function() {

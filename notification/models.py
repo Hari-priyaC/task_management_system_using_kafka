@@ -12,6 +12,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=200)
     message = models.TextField()
     task_id = models.IntegerField(null=True, blank=True)
+    event_id = models.CharField(max_length=64, unique=True, null=True, blank=True, db_index=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     

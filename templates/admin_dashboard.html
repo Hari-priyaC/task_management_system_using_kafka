@@ -46,36 +46,7 @@
             border-radius: 12px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        .notification-badge {
-            position: relative;
-            cursor: pointer;
-        }
-        .notification-badge .badge {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-        }
-        .notification-dropdown {
-            position: absolute;
-            right: 0;
-            top: 40px;
-            width: 350px;
-            max-height: 400px;
-            overflow-y: auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            display: none;
-            z-index: 1000;
-        }
-        .notification-item {
-            padding: 12px 15px;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-        }
-        .notification-item:hover { background: #f8f9fa; }
-        .notification-item.unread { background: #e3f2fd; border-left: 4px solid #2196f3; }
-        .notification-item .time { font-size: 11px; color: #888; margin-top: 4px; }
+        {% include 'partials/notification_styles.html' %}
     </style>
 </head>
 <body>
@@ -114,19 +85,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4> Welcome, {{ user.username }}!</h4>
         <div class="d-flex align-items-center">
-            <div class="notification-badge me-3">
-                <button class="btn btn-light" onclick="toggleNotifications()">
-                    <i class="fas fa-bell"></i>
-                    <span class="badge bg-danger" id="notificationCount">0</span>
-                </button>
-                <div class="notification-dropdown" id="notificationDropdown">
-                    <h6 class="p-3"> Notifications</h6>
-                    <div id="notificationList"><div class="text-center text-muted p-4">No new notifications</div></div>
-                    <div class="p-2 border-top text-center">
-                        <button class="btn btn-sm btn-link" onclick="markAllRead()">Mark all as read</button>
-                    </div>
-                </div>
-            </div>
+            {% include 'partials/notification_bell.html' %}
             <span class="badge bg-primary">Admin</span>
         </div>
     </div>
@@ -288,9 +247,6 @@
 // ============================================
 //  CRITICAL FIX: CSRF Token Setup
 // ============================================
-document.addEventListener('click', function(event) {
-  loadNotifications()
-});
 // Function to get CSRF token from cookie
 function getCSRFToken() {
     let cookieValue = null;
@@ -610,106 +566,17 @@ function loadDashboardStats() {
 }
 
 // ============================================
-// NOTIFICATION FUNCTIONS
-// ============================================
-
-function toggleNotifications() {
-    const dropdown = document.getElementById('notificationDropdown');
-    if (dropdown.style.display === 'block') {
-        dropdown.style.display = 'none';
-    } else {
-        dropdown.style.display = 'block';
-        loadNotifications();
-    }
-}
-
-function loadNotifications() {
-    $.ajax({
-        url: '/notification/notifications/',
-        method: 'GET',
-        success: function(data) {
-            const list = document.getElementById('notificationList');
-            document.getElementById('notificationCount').textContent = data.count;
-            
-            if (data.notifications.length === 0) {
-                list.innerHTML = '<div class="text-center text-muted p-4">No new notifications</div>';
-            } else {
-                list.innerHTML = data.notifications.map(n => `
-                    <div class="notification-item unread" onclick="markRead(${n.id})">
-                        <div><strong>${n.title}</strong></div>
-                        <div>${n.message}</div>
-                        <div class="time">${n.created_at}</div>
-                    </div>
-                `).join('');
-            }
-        },
-        error: function(xhr) {
-            console.error('Error loading notifications:', xhr);
-        }
-    });
-}
-
-function markRead(id) {
-    $.ajax({
-        url: `/notification/${id}/read/`,
-        method: 'POST',
-        success: function() {
-            loadNotifications();
-            const count = parseInt(document.getElementById('notificationCount').textContent) - 1;
-            document.getElementById('notificationCount').textContent = count;
-        },
-        error: function(xhr) {
-            console.error('Error marking notification as read:', xhr);
-        }
-    });
-}
-
-function markAllRead() {
-    $.ajax({
-        url: '/notification/read-all/',
-        method: 'POST',
-        success: function() {
-            document.getElementById('notificationCount').textContent = '0';
-            document.getElementById('notificationList').innerHTML = 
-                '<div class="text-center text-muted p-4">No new notifications</div>';
-        },
-        error: function(xhr) {
-            console.error('Error marking all as read:', xhr);
-        }
-    });
-}
-
-// ============================================
 // INITIALIZATION
 // ============================================
 
 $(document).ready(function() {
     console.log('Admin dashboard loaded');
     console.log(' CSRF Token present:', getCSRFToken() ? ' Yes' : ' No');
-    
+
     loadEmployees('#employeeTableBody');
     loadDashboardStats();
-    
-    // Auto-refresh notifications every 30 seconds
-    setInterval(loadNotifications, 30000);
-    
-    // Close notification dropdown when clicking outside
-    $(document).click(function(event) {
-        if (!$(event.target).closest('.notification-badge').length) {
-            $('#notificationDropdown').hide();
-        }
-    });
 });
-
-// Close dropdown when clicking outside
-$(document).click(function(event) {
-    if (!$(event.target).closest('.notification-badge').length) {
-        $('#notificationDropdown').hide();
-    }
-});
-
-
-
 </script>
+<script src="{% static 'js/notifications.js' %}"></script>
 </body>
 </html>

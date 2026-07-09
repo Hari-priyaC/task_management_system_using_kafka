@@ -1,12 +1,14 @@
 from django.shortcuts import render
-from django.db import models
 
 # Create your views here.
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F
+from django.db.models.functions import TruncDate
+from django.utils import timezone
 from task.models import Task
+from accounts.models import CustomUser
 from .models import AnalyticsLog, DLQLog
 import csv
 import json
@@ -20,43 +22,57 @@ def analytics_dashboard(request):
     """Analytics dashboard"""
     if not request.user.is_admin():
         return JsonResponse({'error': 'Unauthorized'}, status=403)
-    
+
     days = int(request.GET.get('days', 30))
     employee_filter = request.GET.get('employee', '')
-    start_date = datetime.now() - timedelta(days=days)
-    
-    logs = AnalyticsLog.objects.filter(created_at__gte=start_date)
+    start_date = timezone.now() - timedelta(days=days)
+
+    # Counts come from Task - the source of truth - not AnalyticsLog.
+    # AnalyticsLog holds one row per lifecycle *event* (created/approved/
+    # rejected), so counting its rows directly counts events, not tasks: a
+    # task that's created then approved produced 2 AnalyticsLog rows and was
+    # being counted as 2 "total tasks". AnalyticsLog is also populated by a
+    # Kafka consumer, so it can lag or miss rows if that consumer was down.
+    tasks = Task.objects.filter(created_at__gte=start_date)
     if employee_filter:
-        logs = logs.filter(employee_name=employee_filter)
-    
-    total_tasks = logs.count()
-    total_created = logs.filter(event_type='task_created').count()
-    total_approved = logs.filter(event_type='task_approved').count()
-    total_rejected = logs.filter(event_type='task_rejected').count()
-    
+        tasks = tasks.filter(created_by__username=employee_filter)
+
+    total_tasks = tasks.count()
+    total_created = total_tasks  # every Task row is exactly one creation event
+    total_approved = tasks.filter(status='approved').count()
+    total_rejected = tasks.filter(status='rejected').count()
+
     success_rate = 0
     if total_approved + total_rejected > 0:
         success_rate = round((total_approved / (total_approved + total_rejected)) * 100, 2)
-    
-    employee_stats = logs.values('employee_name').annotate(
+
+    employee_stats = tasks.annotate(employee_name=F('created_by__username')).values('employee_name').annotate(
         total=Count('id'),
-        approved=Count('id', filter=Q(event_type='task_approved')),
-        rejected=Count('id', filter=Q(event_type='task_rejected'))
+        approved=Count('id', filter=Q(status='approved')),
+        rejected=Count('id', filter=Q(status='rejected'))
     ).order_by('-total')
-    
-    daily_trends = logs.filter(
-        created_at__gte=datetime.now() - timedelta(days=7)
+
+    daily_trends = tasks.filter(
+        created_at__gte=timezone.now() - timedelta(days=7)
     ).annotate(
-        date=models.functions.TruncDate('created_at')
+        date=TruncDate('created_at')
     ).values('date').annotate(
         total=Count('id'),
-        approved=Count('id', filter=Q(event_type='task_approved')),
-        rejected=Count('id', filter=Q(event_type='task_rejected'))
+        approved=Count('id', filter=Q(status='approved')),
+        rejected=Count('id', filter=Q(status='rejected'))
     ).order_by('date')
-    
-    recent_logs = logs[:50]
-    all_employees = AnalyticsLog.objects.values_list('employee_name', flat=True).distinct()
-    
+
+    # Recent Activity and the employee filter dropdown are audit/display data
+    # (ip_address, user_agent, a per-event timeline), not counts, so the
+    # event-log granularity from AnalyticsLog/CustomUser is exactly what's
+    # wanted here - unlike the aggregates above, these aren't miscounted by
+    # using event rows.
+    recent_logs = AnalyticsLog.objects.filter(created_at__gte=start_date)
+    if employee_filter:
+        recent_logs = recent_logs.filter(employee_name=employee_filter)
+    recent_logs = recent_logs[:50]
+    all_employees = CustomUser.objects.filter(role='employee').values_list('username', flat=True)
+
     context = {
         'total_tasks': total_tasks,
         'total_created': total_created,
@@ -92,7 +108,7 @@ def dlq_dashboard(request):
     
     # Get recent DLQ entries
     recent_dlq = DLQLog.objects.all().order_by('-created_at')[:30]
-    
+
     context = {
         'total_dlq': total_dlq,
         'pending_dlq': pending_dlq,
@@ -119,38 +135,33 @@ def reprocess_dlq(request, dlq_id):
     
     try:
         dlq_entry = DLQLog.objects.get(id=dlq_id)
-        
-        # Update status
-        dlq_entry.status = 'processing'
-        dlq_entry.save()
-        
-        # Trigger reprocessing via Kafka
-        from task.producer import KafkaProducerWithDLQ
-        producer = KafkaProducerWithDLQ()
-        
-        # Send message back to original topic
-        success = producer.send_with_retry(
+        DLQLog.objects.filter(id=dlq_id).update(status='processing')
+
+        # Trigger reprocessing via Kafka (blocking - this is an explicit admin
+        # action, so we want the real outcome, not a fire-and-forget submit).
+        # Passing dlq_entry_id makes the producer update THIS row in place on
+        # success/failure instead of creating a duplicate DLQ row - creating a
+        # new row per failed retry was the bug that let one failed task
+        # publish balloon into a dozen DLQ entries, each later replayed to
+        # Kafka once it recovered, which is what inflated notification counts.
+        from task.producer import producer
+        success = producer.send_with_retry_sync(
             topic=dlq_entry.original_topic,
             message=dlq_entry.original_message,
-            dlq_topic='task-dlq'
+            task_id=dlq_entry.task_id,
+            dlq_entry_id=dlq_entry.id,
         )
-        
+
+        dlq_entry.refresh_from_db()
         if success:
-            dlq_entry.status = 'resolved'
-            dlq_entry.resolved_at = datetime.now()
-            dlq_entry.save()
-            
             return JsonResponse({
                 'success': True,
                 'message': 'Message reprocessed successfully'
             })
         else:
-            dlq_entry.status = 'failed'
-            dlq_entry.save()
-            
             return JsonResponse({
                 'success': False,
-                'message': 'Reprocessing failed. Check DLQ.'
+                'message': f'Reprocessing failed: {dlq_entry.error}'
             }, status=500)
             
     except DLQLog.DoesNotExist:

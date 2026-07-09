@@ -1,0 +1,30 @@
+.notification-badge {
+    position: relative;
+    cursor: pointer;
+}
+.notification-badge .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+}
+.notification-dropdown {
+    position: absolute;
+    right: 0;
+    top: 40px;
+    width: 350px;
+    max-height: 400px;
+    overflow-y: auto;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    display: none;
+    z-index: 1000;
+}
+.notification-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+}
+.notification-item:hover { background: #f8f9fa; }
+.notification-item.unread { background: #e3f2fd; border-left: 4px solid #2196f3; }
+.notification-item .time { font-size: 11px; color: #888; margin-top: 4px; }

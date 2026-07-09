@@ -12,6 +12,7 @@ class AnalyticsLog(models.Model):
     )
     
     event_type = models.CharField(max_length=50, choices=EVENT_TYPES)
+    event_id = models.CharField(max_length=64, unique=True, null=True, blank=True, db_index=True)
     task_id = models.IntegerField()
     task_title = models.CharField(max_length=200)
     employee_name = models.CharField(max_length=150)
@@ -36,7 +37,10 @@ class DLQLog(models.Model):
     """
     original_topic = models.CharField(max_length=100)
     original_message = models.JSONField()
+    task_id = models.IntegerField(null=True, blank=True, db_index=True)
+    event_id = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     error = models.TextField()
+    exception_type = models.CharField(max_length=255, blank=True, null=True)
     retry_count = models.IntegerField(default=0)
     max_retries = models.IntegerField(default=3)
     status = models.CharField(
@@ -55,6 +59,6 @@ class DLQLog(models.Model):
     
     def __str__(self):
         return f"DLQ Entry: {self.original_topic} - {self.status}"
-    
+
     class Meta:
         ordering = ['-created_at']
