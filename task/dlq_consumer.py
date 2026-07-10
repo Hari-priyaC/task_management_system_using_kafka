@@ -12,7 +12,7 @@ django.setup()
 
 from task.producer import KafkaProducerWithDLQ
 
-print("🔍 DLQ Consumer Starting...")
+print(" DLQ Consumer Starting...")
 
 try:
     producer = KafkaProducerWithDLQ()

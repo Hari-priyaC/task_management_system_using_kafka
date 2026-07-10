@@ -103,7 +103,7 @@
 
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4>📊 Analytics Dashboard</h4>
+        <h4> Analytics Dashboard</h4>
         <div class="d-flex align-items-center">
             {% include 'partials/notification_bell.html' %}
             <div>
@@ -202,13 +202,13 @@
     <!-- <div class="row">
         <div class="col-md-6">
             <div class="chart-container">
-                <h6>📊 Task Status Distribution</h6>
+                <h6>Task Status Distribution</h6>
                 <canvas id="statusChart" height="200"></canvas>
             </div>
         </div>
         <div class="col-md-6">
             <div class="chart-container">
-                <h6>📈 Employee Performance</h6>
+                <h6> Employee Performance</h6>
                 <canvas id="employeeChart" height="200"></canvas>
             </div>
         </div>
@@ -218,7 +218,7 @@
     <div class="row">
         <div class="col-md-12">
             <div class="chart-container">
-                <h6>📅 Daily Activity Trends (Last 7 Days)</h6>
+                <h6> Daily Activity Trends (Last 7 Days)</h6>
                 <canvas id="trendChart" height="150"></canvas>
             </div>
         </div>
@@ -226,7 +226,7 @@
 
     <!-- Employee Performance Table -->
     <div class="table-container">
-        <h6 class="mb-3">👥 Employee Performance</h6>
+        <h6 class="mb-3"> Employee Performance</h6>
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead><tr><th>Employee</th><th>Total</th><th>Approved</th><th>Rejected</th><th>Success Rate</th></tr></thead>
@@ -253,7 +253,7 @@
 
     <!-- Recent Activity Log -->
     <div class="table-container">
-        <h6 class="mb-3">🔄 Recent Activity</h6>
+        <h6 class="mb-3"> Recent Activity</h6>
         <div class="table-responsive">
             <table class="table table-sm table-hover">
                 <thead><tr><th>Time</th><th>Event</th><th>Task</th><th>Employee</th><th>Status</th></tr></thead>
@@ -287,7 +287,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{% static 'js/notifications.js' %}"></script>
 <script>
-// ⭐ FIX: Check if data exists before creating charts
+//  FIX: Check if data exists before creating charts
 document.addEventListener('DOMContentLoaded', function() {
     
     // Get data from Django template
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const employeeData = {{ employee_stats|safe|default:'[]' }};
     const trendData = {{ daily_trends|safe|default:'[]' }};
     
-    // ⭐ Chart 1: Status Distribution (Only if data exists)
+    //  Chart 1: Status Distribution (Only if data exists)
     if (totalCreated > 0 || totalApproved > 0 || totalRejected > 0) {
         new Chart(document.getElementById('statusChart'), {
             type: 'doughnut',
@@ -321,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function() {
             '<div class="no-data-msg">📊 No data available for chart</div>';
     }
     
-    // ⭐ Chart 2: Employee Performance (Only if data exists)
+    //  Chart 2: Employee Performance (Only if data exists)
     if (employeeData && employeeData.length > 0) {
         new Chart(document.getElementById('employeeChart'), {
             type: 'bar',
@@ -356,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function() {
             '<div class="no-data-msg">👥 No employee data available</div>';
     }
     
-    // ⭐ Chart 3: Daily Trends (Only if data exists)
+    // Chart 3: Daily Trends (Only if data exists)
     if (trendData && trendData.length > 0) {
         new Chart(document.getElementById('trendChart'), {
             type: 'line',
@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     } else {
         document.getElementById('trendChart').parentElement.innerHTML = 
-            '<div class="no-data-msg">📅 No daily trends data available</div>';
+            '<div class="no-data-msg"> No daily trends data available</div>';
     }
 });
 

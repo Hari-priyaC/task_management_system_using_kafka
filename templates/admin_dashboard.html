@@ -263,7 +263,7 @@ function getCSRFToken() {
     return cookieValue;
 }
 
-// ⭐ Global AJAX setup - Adds CSRF token to ALL AJAX requests
+//  Global AJAX setup - Adds CSRF token to ALL AJAX requests
 $.ajaxSetup({
     beforeSend: function(xhr, settings) {
         // Only add token for non-GET requests
@@ -318,7 +318,7 @@ function loadEmployees(targetId) {
         },
         error: function(xhr) {
             console.error('Error loading employees:', xhr);
-            alert('❌ Failed to load employees. Please refresh.');
+            alert(' Failed to load employees. Please refresh.');
         }
     });
 }
@@ -339,7 +339,7 @@ function addEmployee() {
         department: document.getElementById('empDepartment').value
     };
     
-    // ⭐ CSRF token is automatically added by $.ajaxSetup
+    // CSRF token is automatically added by $.ajaxSetup
     $.ajax({
         url: '/accounts/api/employees/create/',
         method: 'POST',
@@ -348,12 +348,12 @@ function addEmployee() {
         success: function(response) {
             if (response.success) {
                 addModal.hide();
-                alert('✅ Employee added successfully!');
+                alert(' Employee added successfully!');
                 loadEmployees('#employeeTableBody');
                 loadEmployees('#employeeTableBody2');
                 loadDashboardStats();
             } else {
-                alert('❌ Error: ' + (response.error || 'Unknown error'));
+                alert(' Error: ' + (response.error || 'Unknown error'));
             }
         },
         error: function(xhr) {
@@ -364,7 +364,7 @@ function addEmployee() {
             } catch(e) {
                 errorMsg = xhr.statusText || 'Server error';
             }
-            alert('❌ Error: ' + errorMsg);
+            alert('Error: ' + errorMsg);
             console.error('Error details:', xhr);
         }
     });
@@ -387,7 +387,7 @@ function editEmployee(id) {
             }
         },
         error: function(xhr) {
-            alert('❌ Error loading employee details');
+            alert(' Error loading employee details');
         }
     });
 }

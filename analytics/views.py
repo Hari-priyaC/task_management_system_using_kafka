@@ -27,12 +27,7 @@ def analytics_dashboard(request):
     employee_filter = request.GET.get('employee', '')
     start_date = timezone.now() - timedelta(days=days)
 
-    # Counts come from Task - the source of truth - not AnalyticsLog.
-    # AnalyticsLog holds one row per lifecycle *event* (created/approved/
-    # rejected), so counting its rows directly counts events, not tasks: a
-    # task that's created then approved produced 2 AnalyticsLog rows and was
-    # being counted as 2 "total tasks". AnalyticsLog is also populated by a
-    # Kafka consumer, so it can lag or miss rows if that consumer was down.
+ 
     tasks = Task.objects.filter(created_at__gte=start_date)
     if employee_filter:
         tasks = tasks.filter(created_by__username=employee_filter)
